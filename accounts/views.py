@@ -1,50 +1,30 @@
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.contrib.auth.models import User
-from .models import Account
-from rest_framework.decorators import api_view
-from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.contrib.auth.models import User
+from .serializers import UserSerializer
+from django.shortcuts import get_object_or_404
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated, IsAdminUser  # Added IsAdminUser import
 
-@api_view(['GET'])
-def get_users(request):
-    users = User.objects.all()
-    user_data = []
+class GetUsers(APIView):
+    permission_classes = [IsAdminUser]
 
-    for user in users:
-        account = user.account  
-        
-        user_data.append({
-            "username": user.username,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "bio": account.bio,
-            "profile_picture": account.profile_picture.url if account.profile_picture else None,
-            "phone_number": account.phone_number,
-            "address": account.address,
-            "createdAt": account.createdAt,
-            "updatedAt": account.updatedAt,
-        })
+    def get(self, request):
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
 
-    return JsonResponse(user_data, safe=False, status=status.HTTP_200_OK)
+class GetUser(APIView):
+    permission_classes = [IsAdminUser]
 
+    def get(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
 
-@api_view(['GET'])
-def get_user(request, user_id):
-    user = get_object_or_404(User, pk=user_id)  
-    account = user.account  
-    user_data = {
-        "username": user.username,
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "bio": account.bio,
-        "profile_picture": account.profile_picture.url if account.profile_picture else None,
-        "phone_number": account.phone_number,
-        "address": account.address,
-        "createdAt": account.createdAt,
-        "updatedAt": account.updatedAt,
-    }
+class UserProfile(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
 
-    return JsonResponse(user_data, status=status.HTTP_200_OK)
+    def get_object(self):
+        return self.request.user
